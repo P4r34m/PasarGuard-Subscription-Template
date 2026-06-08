@@ -10,6 +10,16 @@ The UI is Persian / RTL by default with an English toggle. All **code comments**
 > When opened directly (file or local server) it shows sample data for preview.
 > When served by PasarGuard, the panel injects the real user data.
 
+## ⚡ Quick install (one line)
+
+Run this on your PasarGuard server:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/P4r34m/PasarGuard-Subscription-Template/main/install.sh | sudo bash
+```
+
+It downloads the template, configures the panel, and restarts it. Re-run any time to update.
+
 ---
 
 ## 1) Customize (just a few lines)
@@ -40,7 +50,16 @@ Do **not** edit the `window.__INITIAL_DATA__` block at the top of the file — t
 
 ## 2) Install on PasarGuard
 
-### Option A — installer script (English output)
+### One-line install (recommended)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/P4r34m/PasarGuard-Subscription-Template/main/install.sh | sudo bash
+```
+
+This downloads `index.html` from this repository, sets the two required environment variables, and
+restarts PasarGuard. All terminal output is in English. Run it again any time to update.
+
+### From a local copy
 
 Copy `index.html` and `install.sh` to the server (same folder), then:
 
@@ -48,11 +67,9 @@ Copy `index.html` and `install.sh` to the server (same folder), then:
 sudo ./install.sh
 ```
 
-It copies the template to `/var/lib/pasarguard/templates/subscription/index.html`, sets the
-two required environment variables, and restarts PasarGuard. Run `./install.sh --help` for options
-(`--file`, `--url`, `--dest`, `--env`).
+Run `./install.sh --help` for options (`--file`, `--url`, `--dest`, `--env`).
 
-### Option B — manual
+### Manual
 
 1. Place the file at:
    ```
