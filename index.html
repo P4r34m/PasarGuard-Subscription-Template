@@ -381,6 +381,7 @@
     const a = (data.user && data.user.admin) || null;
     if (!pa.enabled) return base;
     const uname = a && a.username ? a.username : null;
+    if (!uname) return base;     // admin unknown (older panel / unassigned user) -> safe default: owner branding
     let entry;
     if (uname && pa.byAdmin){
       const key = Object.keys(pa.byAdmin).find(k => k.toLowerCase() === uname.toLowerCase());  // case-insensitive
