@@ -265,7 +265,12 @@
             'data_limit': user.next_plan.data_limit,
             'expire': user.next_plan.expire,
             'add_remaining_traffic': user.next_plan.add_remaining_traffic
-          } if user.next_plan else None
+          } if user.next_plan else None,
+          'admin': {
+            'username': user.admin.username,
+            'profile_title': user.admin.profile_title,
+            'support_url': user.admin.support_url
+          } if user.admin else None
         } %}{{ user_data | tojson | safe }}{% else %}null{% endif %},
         links: {{ links | tojson | safe }},
         apps: {% if apps %}{% set apps_data = [] %}{% for app in apps %}{% if app %}{% set download_links_data = [] %}{% for link in app.download_links %}{% if link %}{% set link_dict = {
@@ -324,10 +329,20 @@
     website:         "",                 // website (optional) e.g. https://example.com
     github:          "https://github.com/P4r34m/PasarGuard-Subscription-Template", // repo link shown in the footer
     footerName:      "P4r34m",           // text shown (and linked) in the footer credit
+
+    // Per-admin branding: show each reseller-admin their OWN channel/bot/support (not yours).
+    // Key = the admin's PasarGuard username (user.admin.username). Turn on after adding admins.
+    perAdmin: {
+      enabled: false,        // set true once you've listed your admins below
+      fallback: "neutral",   // for an admin NOT listed: "neutral" = hide your channel/bot and use
+                             //   that admin's own panel support link; "default" = show your branding
+      byAdmin: {
+        // "your_admin_username": {},  // YOU -> keeps the default branding above (empty = inherit all)
+        // "reseller1": { brandName:"R1 VPN", telegramChannel:"r1_channel", salesBot:"r1_bot", supportId:"r1_support", brandLogoUrl:"", accent:"#10b981" },
+      },
+    },
   };
   /* ============================ end of config ============================== */
-
-  document.documentElement.style.setProperty('--accent', CONFIG.accent);
 
   const RAW = window.__INITIAL_DATA__ || {};
   const isPreview = !(RAW && RAW.user);
@@ -342,6 +357,7 @@
       created_at: new Date(Date.now()-12*864e5).toISOString(),
       online_at: new Date(Date.now()-90e3).toISOString(),
       on_hold_expire_duration: null, next_plan: null,
+      admin: { username: "reseller_demo", profile_title: "Reseller Demo", support_url: "https://t.me/reseller_support" },
     },
     links: [
       "vless://11111111-1111-1111-1111-111111111111@de.example.com:443?security=reality&type=tcp#%F0%9F%87%A9%F0%9F%87%AA%20Germany",
@@ -355,6 +371,31 @@
   const subUrl = isPreview ? SAMPLE_SUB : (location.href.split('#')[0]);
   const LINKS = (data.links || []).filter(x => typeof x === 'string' && x.trim());
   const APPS  = Array.isArray(data.apps) ? data.apps.filter(Boolean) : [];
+
+  // Resolve branding for the admin that owns this user (owner vs reseller-admins). See CONFIG.perAdmin.
+  function resolveBrand(){
+    const base = { brandName:CONFIG.brandName, brandLogo:CONFIG.brandLogo, brandLogoUrl:CONFIG.brandLogoUrl,
+      accent:CONFIG.accent, salesBot:CONFIG.salesBot, telegramChannel:CONFIG.telegramChannel,
+      supportId:CONFIG.supportId, supportUrl:'', website:CONFIG.website };
+    const pa = CONFIG.perAdmin || {};
+    const a = (data.user && data.user.admin) || null;
+    if (!pa.enabled) return base;
+    const uname = a && a.username ? a.username : null;
+    const entry = (uname && pa.byAdmin) ? pa.byAdmin[uname] : undefined;
+    let b;
+    if (entry !== undefined){
+      b = Object.assign({}, base, entry);                  // listed admin (empty {} = owner default)
+    } else if (pa.fallback === 'default'){
+      b = base;                                            // unlisted admin -> show owner branding
+    } else {
+      b = Object.assign({}, base, { telegramChannel:'', salesBot:'', supportId:'', brandLogoUrl:'' });
+      if (a && a.profile_title) b.brandName = a.profile_title;   // neutral: never leak owner channel/bot
+    }
+    if (!b.supportId && !b.supportUrl && a && a.support_url) b.supportUrl = a.support_url; // native per-admin support
+    return b;
+  }
+  const B = resolveBrand();
+  document.documentElement.style.setProperty('--accent', B.accent);
 
   let lang  = localStorage.getItem('pg_lang')  || 'fa';
   let theme = localStorage.getItem('pg_theme') || 'dark';
@@ -489,7 +530,7 @@
   function clients(sub){
     const e = encodeURIComponent(sub);
     let b64 = ''; try { b64 = btoa(unescape(encodeURIComponent(sub))); } catch {}
-    const nm = encodeURIComponent(CONFIG.brandName);
+    const nm = encodeURIComponent(B.brandName);
     return [
       { name:'Hiddify',      e:'🟣', os:['android','ios','windows','mac','linux'], url:'hiddify://import/' + sub },
       { name:'sing-box',     e:'📦', os:['android','ios','windows','mac','linux'], url:'sing-box://import-remote-profile?url=' + e },
@@ -525,7 +566,7 @@
   /* --------------------------- render sections ----------------------------- */
   function topbar(){
     return `<div class="topbar">
-      <div class="brand"><span class="logo">${CONFIG.brandLogoUrl ? `<img src="${esc(CONFIG.brandLogoUrl)}" alt="" />` : esc(CONFIG.brandLogo)}</span><span>${esc(CONFIG.brandName)}</span></div>
+      <div class="brand"><span class="logo">${B.brandLogoUrl ? `<img src="${esc(B.brandLogoUrl)}" alt="" />` : esc(B.brandLogo)}</span><span>${esc(B.brandName)}</span></div>
       <div class="tools">
         <button class="icon-btn" data-action="lang" title="language">${lang === 'fa' ? 'EN' : 'فا'}</button>
         <button class="icon-btn" data-action="theme" title="theme">${theme === 'dark' ? '☀️' : '🌙'}</button>
@@ -669,10 +710,11 @@
 
   function ctaSection(){
     const tg = h => `https://t.me/${String(h).replace(/^@/, '')}`;
-    const buy = CONFIG.salesBot ? `<a class="btn buy" href="${esc(tg(CONFIG.salesBot))}">🛒 ${t('buy')}</a>` : '';
-    const ch  = CONFIG.telegramChannel ? `<a class="btn tg" href="${esc(tg(CONFIG.telegramChannel))}">📢 ${t('channel')}</a>` : '';
-    const sp  = CONFIG.supportId ? `<a class="btn sp" href="${esc(tg(CONFIG.supportId))}">💬 ${t('support')}</a>` : '';
-    const site= CONFIG.website ? `<a class="btn sp" href="${esc(CONFIG.website)}" target="_blank" rel="noopener">🌐 ${t('site')}</a>` : '';
+    const buy = B.salesBot ? `<a class="btn buy" href="${esc(tg(B.salesBot))}">🛒 ${t('buy')}</a>` : '';
+    const ch  = B.telegramChannel ? `<a class="btn tg" href="${esc(tg(B.telegramChannel))}">📢 ${t('channel')}</a>` : '';
+    const supHref = B.supportUrl ? B.supportUrl : (B.supportId ? tg(B.supportId) : '');
+    const sp  = supHref ? `<a class="btn sp" href="${esc(supHref)}">💬 ${t('support')}</a>` : '';
+    const site= B.website ? `<a class="btn sp" href="${esc(B.website)}" target="_blank" rel="noopener">🌐 ${t('site')}</a>` : '';
     const extras = [sp, site].filter(Boolean);
     // Only use the 2-column grid when BOTH exist; a single extra spans full width like the buttons above.
     const extrasHtml = extras.length === 2 ? `<div class="cta-grid">${sp}${site}</div>` : extras.join('');
@@ -877,7 +919,7 @@
     const u = data.user;
     app.innerHTML = topbar() + profile(u) + stats(u) + usageSection() + subCard()
       + configsSection() + appsSection() + ctaSection() + footer(u);
-    document.title = `${u.username || CONFIG.brandName} · ${CONFIG.brandName}`;
+    document.title = `${u.username || B.brandName} · ${B.brandName}`;
     paintChart();
   }
 

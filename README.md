@@ -48,7 +48,36 @@ Do **not** edit the `window.__INITIAL_DATA__` block at the top of the file — t
 
 ---
 
-## 2) Install on PasarGuard
+## 2) Per-admin branding (resellers)
+
+Each reseller-admin can show **their own** channel / sales bot / support instead of yours. The
+template reads the owning admin from PasarGuard (`user.admin.username`) and resolves branding from
+`CONFIG.perAdmin`:
+
+```js
+perAdmin: {
+  enabled: true,            // turn the feature on
+  fallback: "neutral",      // unlisted admins: "neutral" (hide your channel/bot, use their own
+                            //   panel support link) or "default" (show your branding)
+  byAdmin: {
+    "your_admin_username": {},                       // you -> your default branding above
+    "reseller1": { brandName:"R1 VPN", telegramChannel:"r1_channel", salesBot:"r1_bot", supportId:"r1_support" },
+  },
+},
+```
+
+- Key each entry by the admin's **PasarGuard username**. An empty `{}` = use your default branding.
+- Omitted fields fall back to your defaults; `accent` and `brandLogoUrl` can be per-admin too.
+- With `fallback: "neutral"`, an admin you have **not** listed never shows your channel/bot — it uses
+  that admin's own **Support URL** and **Profile title** (set per admin in the panel).
+
+> Note: only the admin's `username`, `profile_title` and `support_url` are exposed to the page, so
+> per-reseller **channel/bot** must be set in the map above. PasarGuard also lets each admin point to a
+> different template file (Admin → `sub_template`) for a fully separate page.
+
+---
+
+## 3) Install on PasarGuard
 
 ### One-line install (recommended)
 
