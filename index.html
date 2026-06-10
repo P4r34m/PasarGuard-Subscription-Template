@@ -221,6 +221,7 @@
     /* keep numbers + Latin units (e.g. "32.6 GB") rendering LTR inside RTL text */
     .ltr{unicode-bidi:isolate;direction:ltr}
     .brand .logo img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+    .qr-ico{width:18px;height:18px;flex:none;vertical-align:-3px}
 
     @media (max-width:430px){
       .ring-wrap,.ring{width:118px;height:118px}
@@ -455,6 +456,7 @@
   const num   = n => lang === 'fa' ? faNum(n) : String(n);
   const esc   = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pad2  = n => (n < 10 ? '0' : '') + n;
+  const QR_ICON = `<svg class="qr-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>`;
 
   function fmtBytes(b){
     if (b == null) return '∞';
@@ -667,7 +669,7 @@
       <div class="sub-box">${esc(subUrl)}</div>
       <div class="btn-row">
         <button class="btn primary" data-action="copy-sub">📋 ${t('copyLink')}</button>
-        <button class="btn" data-action="qr-sub">⬜ ${t('showQr')}</button>
+        <button class="btn" data-action="qr-sub">${QR_ICON} ${t('showQr')}</button>
       </div>
       <div class="card-h" style="margin:18px 0 0;font-size:.9rem"><span class="dot"></span>${t('quickAdd')}</div>
       <div class="os-tabs">${osBtns}</div>
@@ -687,7 +689,7 @@
         </div>
         <div class="act">
           <button class="icon-btn" data-copy-idx="${i}" title="${t('copyConfig')}">📋</button>
-          <button class="icon-btn" data-qr-idx="${i}" title="${t('qr')}">⬜</button>
+          <button class="icon-btn" data-qr-idx="${i}" title="${t('qr')}">${QR_ICON}</button>
         </div>
       </div>`;
     }).join('');
