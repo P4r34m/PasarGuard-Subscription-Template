@@ -333,11 +333,11 @@
     // Per-admin branding: show each reseller-admin their OWN channel/bot/support (not yours).
     // Key = the admin's PasarGuard username (user.admin.username). Turn on after adding admins.
     perAdmin: {
-      enabled: false,        // set true once you've listed your admins below
-      fallback: "neutral",   // for an admin NOT listed: "neutral" = hide your channel/bot and use
-                             //   that admin's own panel support link; "default" = show your branding
+      enabled: true,         // ON: only the owner admin(s) below show full branding; others see no channel/bot
+      fallback: "neutral",   // unlisted admins: hide your channel/bot/logo, use only their own panel support link
       byAdmin: {
-        // "your_admin_username": {},  // YOU -> keeps the default branding above (empty = inherit all)
+        "parsa": {},          // YOU (administrator) -> full default branding above (channel, bot, logo)
+        // To give a reseller their OWN branding instead of hiding it, add them here:
         // "reseller1": { brandName:"R1 VPN", telegramChannel:"r1_channel", salesBot:"r1_bot", supportId:"r1_support", brandLogoUrl:"", accent:"#10b981" },
       },
     },
@@ -357,7 +357,7 @@
       created_at: new Date(Date.now()-12*864e5).toISOString(),
       online_at: new Date(Date.now()-90e3).toISOString(),
       on_hold_expire_duration: null, next_plan: null,
-      admin: { username: "reseller_demo", profile_title: "Reseller Demo", support_url: "https://t.me/reseller_support" },
+      admin: { username: "parsa", profile_title: "Parsashonam", support_url: null },
     },
     links: [
       "vless://11111111-1111-1111-1111-111111111111@de.example.com:443?security=reality&type=tcp#%F0%9F%87%A9%F0%9F%87%AA%20Germany",
@@ -381,7 +381,11 @@
     const a = (data.user && data.user.admin) || null;
     if (!pa.enabled) return base;
     const uname = a && a.username ? a.username : null;
-    const entry = (uname && pa.byAdmin) ? pa.byAdmin[uname] : undefined;
+    let entry;
+    if (uname && pa.byAdmin){
+      const key = Object.keys(pa.byAdmin).find(k => k.toLowerCase() === uname.toLowerCase());  // case-insensitive
+      entry = key !== undefined ? pa.byAdmin[key] : undefined;
+    }
     let b;
     if (entry !== undefined){
       b = Object.assign({}, base, entry);                  // listed admin (empty {} = owner default)
