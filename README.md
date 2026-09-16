@@ -62,19 +62,23 @@ PasarGuard gives every admin a list of **custom variables** and passes them to t
 
 | Key | What it sets |
 |---|---|
-| `SUB_BRAND` | shop name shown at the top |
+| `SUB_BRAND` | shop name shown at the top (Persian side) |
+| `SUB_BRAND_EN` | shop name used when the page is switched to English (optional) |
 | `SUB_LOGO` | emoji or letter logo (used when no image) |
-| `SUB_LOGO_URL` | `https` image URL, or a short `data:image/...;base64,` URI |
+| `SUB_LOGO_URL` | `https` image URL, or a `data:image/...;base64,` URI |
+| `SUB_LOGO_1` … `SUB_LOGO_16` | the rest of that data URI when it does not fit in one value — the page joins `SUB_LOGO_URL` + the consecutive parts |
 | `SUB_ACCENT` | theme colour, e.g. `#10b981` |
 | `SUB_BOT` | sales/renewal bot username (no `@`) |
+| `SUB_FREE_BOT` | a second bot for free configs, shown as its own button (no `@`) |
 | `SUB_CHANNEL` | channel username (no `@`) |
 | `SUB_SUPPORT` | support account username (no `@`) |
 | `SUB_SITE` | website (`https`) |
 | `SUB_NOTICE` | a message shown in a card at the top of the page |
 | `SUB_NOTICE_URL` | makes that message a link (`https`) |
 
-- A value is capped at **512 characters** by the panel, so a logo goes in as a URL rather than a
-  full base64 image.
+- A value is capped at **512 characters** by the panel — not enough for a picture — so a logo is
+  either an `https` URL, or a data URI split across `SUB_LOGO_URL` + `SUB_LOGO_1..16` and joined
+  back here. (The Telegram bot does that splitting for you when a reseller sends a photo.)
 - Every value is validated in the page: handles are cleaned (`@name`, `t.me/name` and `name` all
   work), colours must be hex, URLs must be `https` (or `data:image/...` for the logo), and all text
   is inserted as **text**, never HTML. An invalid value is ignored rather than blanking anything.
