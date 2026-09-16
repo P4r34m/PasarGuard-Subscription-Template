@@ -50,9 +50,42 @@ Do **not** edit the `window.__INITIAL_DATA__` block at the top of the file — t
 
 ## 2) Per-admin branding (resellers)
 
-Each reseller-admin can show **their own** channel / sales bot / support instead of yours. The
-template reads the owning admin from PasarGuard (`user.admin.username`) and resolves branding from
-`CONFIG.perAdmin`:
+Each reseller-admin can show **their own** shop name, logo, colour, channel, sales bot, support and a
+short notice instead of yours. There are two ways to set it, and the first needs no file editing at
+all.
+
+### a) From the panel — per admin, no redeploy (recommended)
+
+PasarGuard gives every admin a list of **custom variables** and passes them to this page on
+`user.admin`. Set these on the admin (panel UI, or `PUT /api/admin/{username}` with
+`custom_variables`) and the page picks them up on the next load:
+
+| Key | What it sets |
+|---|---|
+| `SUB_BRAND` | shop name shown at the top |
+| `SUB_LOGO` | emoji or letter logo (used when no image) |
+| `SUB_LOGO_URL` | `https` image URL, or a short `data:image/...;base64,` URI |
+| `SUB_ACCENT` | theme colour, e.g. `#10b981` |
+| `SUB_BOT` | sales/renewal bot username (no `@`) |
+| `SUB_CHANNEL` | channel username (no `@`) |
+| `SUB_SUPPORT` | support account username (no `@`) |
+| `SUB_SITE` | website (`https`) |
+| `SUB_NOTICE` | a message shown in a card at the top of the page |
+| `SUB_NOTICE_URL` | makes that message a link (`https`) |
+
+- A value is capped at **512 characters** by the panel, so a logo goes in as a URL rather than a
+  full base64 image.
+- Every value is validated in the page: handles are cleaned (`@name`, `t.me/name` and `name` all
+  work), colours must be hex, URLs must be `https` (or `data:image/...` for the logo), and all text
+  is inserted as **text**, never HTML. An invalid value is ignored rather than blanking anything.
+- Anything an admin sets this way **wins over everything below**, including `hideBranding` — that
+  switch is about not leaking *your* channel and bot to somebody else's customers, and theirs is not
+  yours.
+
+### b) From the file — a static map
+
+The template reads the owning admin from PasarGuard (`user.admin.username`) and resolves branding
+from `CONFIG.perAdmin`:
 
 ```js
 perAdmin: {
@@ -71,9 +104,9 @@ perAdmin: {
 - With `fallback: "neutral"`, an admin you have **not** listed never shows your channel/bot — it uses
   that admin's own **Support URL** and **Profile title** (set per admin in the panel).
 
-> Note: only the admin's `username`, `profile_title` and `support_url` are exposed to the page, so
-> per-reseller **channel/bot** must be set in the map above. PasarGuard also lets each admin point to a
-> different template file (Admin → `sub_template`) for a fully separate page.
+> Note: besides the custom variables above, the page is given the admin's `username`,
+> `profile_title` and `support_url`. PasarGuard also lets each admin point to a different template
+> file (Admin → `sub_template`) for a fully separate page.
 
 ---
 

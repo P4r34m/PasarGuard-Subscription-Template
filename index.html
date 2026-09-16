@@ -53,6 +53,9 @@
 
     .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
       padding:18px;margin-bottom:16px}
+    /* The admin's own message at the top: readable, and clearly not a control. */
+    .notice{padding:12px 14px;font-size:.92rem;line-height:1.8;border-inline-start:3px solid var(--accent)}
+    .notice a{color:var(--accent);text-decoration:none}
     .card-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.02rem;margin-bottom:14px}
     .card-h .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
     .muted{color:var(--muted)}
@@ -240,7 +243,7 @@
   <script>
     try {
       const obj = {
-        user: {% if user %}{% set user_data = {
+        user: {% if user %}{% set cvars = [] %}{% if user.admin %}{% for v in user.admin.custom_variables|default([], true) %}{% set _ = cvars.append({'key': v.key, 'value': v.value}) %}{% endfor %}{% endif %}{% set user_data = {
           'id': user.id,
           'username': user.username,
           'status': user.status.name if user.status else 'active',
@@ -272,7 +275,8 @@
           'admin': {
             'username': user.admin.username,
             'profile_title': user.admin.profile_title,
-            'support_url': user.admin.support_url
+            'support_url': user.admin.support_url,
+            'custom_variables': cvars
           } if user.admin else None
         } %}{{ user_data | tojson | safe }}{% else %}null{% endif %},
         links: {{ links | tojson | safe }},
@@ -334,7 +338,20 @@
     github:          "https://github.com/P4r34m/PasarGuard-Subscription-Template", // repo link shown in the footer
     footerName:      "P4r34m",           // text shown (and linked) in the footer credit
 
-    // Per-admin branding: show each reseller-admin their OWN channel/bot/support (not yours).
+    // Per-admin branding, two ways — and the panel one wins:
+    //
+    //  1. From the PANEL, per admin, with no file to edit: set custom variables on
+    //     the admin (PasarGuard: admin -> custom_variables, or PUT /api/admin/{u}).
+    //     Keys (value max 512 chars, as the panel enforces):
+    //       SUB_BRAND      shop name                SUB_LOGO        emoji/letter logo
+    //       SUB_LOGO_URL   https image or data:     SUB_ACCENT      #rrggbb
+    //       SUB_BOT        sales bot (no @)         SUB_CHANNEL     channel (no @)
+    //       SUB_SUPPORT    support account (no @)   SUB_SITE        https website
+    //       SUB_NOTICE     a message shown on top   SUB_NOTICE_URL  link for it
+    //     Anything an admin sets this way overrides everything below, including
+    //     hideBranding — their branding is theirs, not yours.
+    //
+    //  2. The static map below, for admins you would rather pin here.
     // Key = the admin's PasarGuard username (user.admin.username). Turn on after adding admins.
     perAdmin: {
       enabled: true,         // ON: only the owner admin(s) below show full branding; others see no channel/bot
@@ -378,12 +395,85 @@
   const APPS  = Array.isArray(data.apps) ? data.apps.filter(Boolean) : [];
 
   // Resolve branding for the admin that owns this user (owner vs reseller-admins). See CONFIG.perAdmin.
+  /* ---------------------------------------------------------------------------
+     Branding an admin set on THEMSELVES, from the panel.
+     PasarGuard lets each admin carry `custom_variables` ({key,value}, key
+     [A-Z][A-Z0-9_]*, value <= 512 chars) and passes them to this page on
+     user.admin — so a reseller can be given their own shop name, logo, colour,
+     bot, channel, support id and a notice, with no file on the server to edit
+     and nothing to redeploy. That is what the SUB_* keys below are.
+     Values come from a reseller, so every one of them is validated here and all
+     text is rendered as TEXT, never HTML.
+     --------------------------------------------------------------------------- */
+  const SUB_VAR_KEYS = {
+    SUB_BRAND:'brandName', SUB_LOGO:'brandLogo', SUB_LOGO_URL:'brandLogoUrl', SUB_ACCENT:'accent',
+    SUB_BOT:'salesBot', SUB_CHANNEL:'telegramChannel', SUB_SUPPORT:'supportId', SUB_SITE:'website',
+    SUB_NOTICE:'notice', SUB_NOTICE_URL:'noticeUrl',
+  };
+
+  function adminVars(){
+    const a = (data.user && data.user.admin) || null;
+    const list = (a && Array.isArray(a.custom_variables)) ? a.custom_variables : [];
+    const out = {};
+    list.forEach(v => { if (v && typeof v.key === 'string') out[v.key.toUpperCase()] = String(v.value == null ? '' : v.value); });
+    return out;
+  }
+
+  // A telegram username, however it was typed: "@name", "t.me/name", "name".
+  function cleanHandle(s){
+    const m = String(s||'').trim().replace(/^https?:\/\/(t\.me|telegram\.me)\//i,'').replace(/^@/,'').split(/[/?#]/)[0];
+    return /^[A-Za-z0-9_]{3,64}$/.test(m) ? m : '';
+  }
+  function cleanColor(s){ return /^#[0-9a-fA-F]{3,8}$/.test(String(s||'').trim()) ? String(s).trim() : ''; }
+  // Only https and inline images. A javascript:/data:text URL here would be the
+  // reseller running script on their customers' page.
+  function cleanUrl(s, allowData){
+    const v = String(s||'').trim();
+    if (/^https:\/\/[^\s]+$/i.test(v)) return v;
+    if (allowData && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/i.test(v)) return v;
+    return '';
+  }
+  function cleanText(s, max){ return String(s||'').replace(/\s+/g,' ').trim().slice(0, max || 200); }
+
+  /** The overrides this admin set on themselves, already validated. */
+  function brandFromVars(){
+    const v = adminVars();
+    const out = {};
+    if (v.SUB_BRAND)     out.brandName      = cleanText(v.SUB_BRAND, 48);
+    if (v.SUB_LOGO)      out.brandLogo      = cleanText(v.SUB_LOGO, 8);
+    if (v.SUB_LOGO_URL)  out.brandLogoUrl   = cleanUrl(v.SUB_LOGO_URL, true);
+    if (v.SUB_ACCENT)    out.accent         = cleanColor(v.SUB_ACCENT);
+    if (v.SUB_BOT)       out.salesBot       = cleanHandle(v.SUB_BOT);
+    if (v.SUB_CHANNEL)   out.telegramChannel= cleanHandle(v.SUB_CHANNEL);
+    if (v.SUB_SUPPORT)   out.supportId      = cleanHandle(v.SUB_SUPPORT);
+    if (v.SUB_SITE)      out.website        = cleanUrl(v.SUB_SITE, false);
+    if (v.SUB_NOTICE)    out.notice         = cleanText(v.SUB_NOTICE, 512);
+    if (v.SUB_NOTICE_URL) out.noticeUrl     = cleanUrl(v.SUB_NOTICE_URL, false);
+    // An empty result after validation is the same as "not set": never blank out
+    // what the owner configured because a reseller typed something invalid.
+    Object.keys(out).forEach(k => { if (!out[k]) delete out[k]; });
+
+    return out;
+  }
+
   function resolveBrand(){
     const base = { brandName:CONFIG.brandName, brandLogo:CONFIG.brandLogo, brandLogoUrl:CONFIG.brandLogoUrl,
       accent:CONFIG.accent, salesBot:CONFIG.salesBot, telegramChannel:CONFIG.telegramChannel,
-      supportId:CONFIG.supportId, supportUrl:'', website:CONFIG.website };
-    if (CONFIG.hideBranding) return { brandName:'', brandLogo:'', brandLogoUrl:'', accent:CONFIG.accent,
-      salesBot:'', telegramChannel:'', supportId:'', supportUrl:'', website:'' };   // master switch: no branding
+      supportId:CONFIG.supportId, supportUrl:'', website:CONFIG.website, notice:'', noticeUrl:'' };
+    const own = brandFromVars();
+    const hasOwn = Object.keys(own).length > 0;
+
+    // The master switch hides the OWNER's branding. An admin who set their own
+    // is not hidden by it — that setting is about not leaking your channel and
+    // bot to somebody else's customers, and theirs is not yours.
+    if (CONFIG.hideBranding) {
+      const blank = { brandName:'', brandLogo:'', brandLogoUrl:'', accent:CONFIG.accent,
+        salesBot:'', telegramChannel:'', supportId:'', supportUrl:'', website:'', notice:'', noticeUrl:'' };
+      const a0 = (data.user && data.user.admin) || null;
+      if (a0 && a0.support_url) blank.supportUrl = a0.support_url;
+
+      return hasOwn ? Object.assign(blank, own) : blank;
+    }
     const pa = CONFIG.perAdmin || {};
     const a = (data.user && data.user.admin) || null;
     if (!pa.enabled) return base;
@@ -404,7 +494,9 @@
       if (a && a.profile_title) b.brandName = a.profile_title;   // neutral: never leak owner channel/bot
     }
     if (!b.supportId && !b.supportUrl && a && a.support_url) b.supportUrl = a.support_url; // native per-admin support
-    return b;
+    // Last word to what the admin set on themselves in the panel: it is the one
+    // source they can change without anybody editing this file.
+    return Object.assign(b, own);
   }
   const B = resolveBrand();
   document.documentElement.style.setProperty('--accent', B.accent);
@@ -593,6 +685,22 @@
         <button class="icon-btn" data-action="theme" title="theme">${theme === 'dark' ? '☀️' : '🌙'}</button>
       </div>
     </div>`;
+  }
+
+  /**
+   * The admin's own message, at the top of the page.
+   *
+   * Their words, so it is inserted as TEXT (esc) and its link — if any — is an
+   * https URL that has already been validated. Empty when they set none, which
+   * is the ordinary case.
+   */
+  function noticeBar(){
+    if (!B.notice) return '';
+    const body = esc(B.notice);
+
+    return `<div class="card notice">${B.noticeUrl
+      ? `<a href="${esc(B.noticeUrl)}" target="_blank" rel="noopener noreferrer">${body}</a>`
+      : body}</div>`;
   }
 
   function profile(u){
@@ -953,7 +1061,7 @@
     root.lang = lang; root.dir = lang === 'fa' ? 'rtl' : 'ltr';
     root.dataset.theme = theme;
     const u = data.user;
-    app.innerHTML = topbar() + profile(u) + stats(u) + nextPlanSection() + usageSection() + subCard()
+    app.innerHTML = topbar() + noticeBar() + profile(u) + stats(u) + nextPlanSection() + usageSection() + subCard()
       + configsSection() + appsSection() + ctaSection() + footer(u);
     document.title = B.brandName ? `${u.username || B.brandName} · ${B.brandName}` : (u.username || 'Subscription');
     paintChart();
