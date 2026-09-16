@@ -61,7 +61,13 @@
        of one: a button only in behaviour. */
     .card-h.fold{width:100%;margin:0;background:none;border:0;color:inherit;font:inherit;font-weight:700;
       cursor:pointer;padding:0;text-align:start}
-    .card-h.fold .chev{margin-inline-start:auto;color:var(--muted);font-size:.9rem}
+    /* The fold's own control: a pill at the end of the heading, so it reads as
+       something to press rather than a heading that happens to be clickable. */
+    .card-h.fold .fold-cta{margin-inline-start:auto;display:inline-flex;align-items:center;gap:5px;
+      font-size:.82rem;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);
+      border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:999px;padding:4px 10px}
+    .card-h.fold:hover .fold-cta{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+    .card-h.fold .chev{font-size:.8rem;line-height:1}
     .fold-body{margin-top:14px}
     .card-h .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
     .muted{color:var(--muted)}
@@ -132,6 +138,13 @@
       background:var(--card-2);font-weight:700;font-size:.84rem;cursor:pointer;transition:.18s}
     .chip:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
     .chip .e{font-size:1.05rem}
+    /* App tiles and OS marks: inline SVG, so they are crisp at any size and need
+       nothing from the network. */
+    .app-ico{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+    .app-ico svg{width:18px;height:18px;display:block}
+    .os-ico{display:inline-flex;align-items:center;justify-content:center}
+    .os-ico svg{width:20px;height:20px;display:block}
+    .os-tab.active .os-ico svg{filter:brightness(0) invert(1)}
 
     /* ---- config items ---- */
     .cfg{display:flex;align-items:center;gap:11px;padding:12px;border:1px solid var(--line);border-radius:var(--radius-sm);
@@ -354,7 +367,8 @@
     //       SUB_LOGO_URL   https image or data:     SUB_LOGO_1..16  the rest of a
     //                                               picture too big for one value
     //       SUB_BOT        sales bot (no @)         SUB_FREE_BOT    free-config bot
-    //       SUB_CHANNEL    channel (no @)           SUB_SUPPORT     support (no @)
+    //       SUB_CHANNEL    main channel (no @)      SUB_CHANNEL_NEWS announcements ch.
+    //       SUB_SUPPORT    support (no @)
     //       SUB_SITE       https website
     //       SUB_NOTICE     a message shown on top   SUB_NOTICE_URL  link for it
     //     Anything an admin sets this way overrides everything below, including
@@ -416,7 +430,8 @@
      --------------------------------------------------------------------------- */
   const SUB_VAR_KEYS = {
     SUB_BRAND:'brandName', SUB_BRAND_EN:'brandNameEn', SUB_LOGO:'brandLogo', SUB_LOGO_URL:'brandLogoUrl',
-    SUB_ACCENT:'accent', SUB_BOT:'salesBot', SUB_CHANNEL:'telegramChannel', SUB_SUPPORT:'supportId',
+    SUB_ACCENT:'accent', SUB_BOT:'salesBot', SUB_CHANNEL:'telegramChannel', SUB_CHANNEL_NEWS:'newsChannel',
+    SUB_SUPPORT:'supportId',
     SUB_FREE_BOT:'freeBot', SUB_SITE:'website', SUB_NOTICE:'notice', SUB_NOTICE_URL:'noticeUrl',
   };
 
@@ -479,6 +494,7 @@
     if (v.SUB_ACCENT)    out.accent         = cleanColor(v.SUB_ACCENT);
     if (v.SUB_BOT)       out.salesBot       = cleanHandle(v.SUB_BOT);
     if (v.SUB_CHANNEL)   out.telegramChannel= cleanHandle(v.SUB_CHANNEL);
+    if (v.SUB_CHANNEL_NEWS) out.newsChannel  = cleanHandle(v.SUB_CHANNEL_NEWS);
     if (v.SUB_SUPPORT)   out.supportId      = cleanHandle(v.SUB_SUPPORT);
     if (v.SUB_SITE)      out.website        = cleanUrl(v.SUB_SITE, false);
     if (v.SUB_NOTICE)    out.notice         = cleanText(v.SUB_NOTICE, 512);
@@ -492,7 +508,7 @@
 
   function resolveBrand(){
     const base = { brandName:CONFIG.brandName, brandNameEn:'', brandLogo:CONFIG.brandLogo, brandLogoUrl:CONFIG.brandLogoUrl,
-      accent:CONFIG.accent, salesBot:CONFIG.salesBot, telegramChannel:CONFIG.telegramChannel,
+      accent:CONFIG.accent, salesBot:CONFIG.salesBot, telegramChannel:CONFIG.telegramChannel, newsChannel:'',
       supportId:CONFIG.supportId, supportUrl:'', freeBot:'', website:CONFIG.website, notice:'', noticeUrl:'' };
     const own = brandFromVars();
     const hasOwn = Object.keys(own).length > 0;
@@ -502,7 +518,7 @@
     // bot to somebody else's customers, and theirs is not yours.
     if (CONFIG.hideBranding) {
       const blank = { brandName:'', brandNameEn:'', brandLogo:'', brandLogoUrl:'', accent:CONFIG.accent,
-        salesBot:'', telegramChannel:'', supportId:'', supportUrl:'', freeBot:'', website:'', notice:'', noticeUrl:'' };
+        salesBot:'', telegramChannel:'', newsChannel:'', supportId:'', supportUrl:'', freeBot:'', website:'', notice:'', noticeUrl:'' };
       const a0 = (data.user && data.user.admin) || null;
       if (a0 && a0.support_url) blank.supportUrl = a0.support_url;
 
@@ -524,7 +540,7 @@
     } else if (pa.fallback === 'default'){
       b = base;                                            // unlisted admin -> show owner branding
     } else {
-      b = Object.assign({}, base, { telegramChannel:'', salesBot:'', supportId:'', freeBot:'', brandLogoUrl:'' });
+      b = Object.assign({}, base, { telegramChannel:'', newsChannel:'', salesBot:'', supportId:'', freeBot:'', brandLogoUrl:'' });
       if (a && a.profile_title) b.brandName = a.profile_title;   // neutral: never leak owner channel/bot
     }
     if (!b.supportId && !b.supportUrl && a && a.support_url) b.supportUrl = a.support_url; // native per-admin support
@@ -554,6 +570,7 @@
       configs:'کانفیگ‌ها', noConfig:'کانفیگی موجود نیست.', copyAll:'کپی همه‌ی کانفیگ‌ها',
       apps:'اپلیکیشن‌های پیشنهادی', addToApp:'افزودن', download:'دانلود',
       copied:'کپی شد ✅', buy:'خرید / تمدید اشتراک', channel:'کانال تلگرام', support:'پشتیبانی', site:'وب‌سایت',
+      showList:'نمایش', hideList:'بستن', news:'کانال اطلاع‌رسانی',
       freeBot:'ربات کانفیگ رایگان',
       nextPlan:'پلن بعدی', recommended:'پیشنهادی', secure:'اتصال شما امن و رمزنگاری‌شده است',
       st_active:'فعال', st_on_hold:'در انتظار فعال‌سازی', st_limited:'حجم تمام شده',
@@ -574,6 +591,7 @@
       configs:'Configs', noConfig:'No configs available.', copyAll:'Copy all configs',
       apps:'Recommended apps', addToApp:'Add', download:'Download',
       copied:'Copied ✅', buy:'Buy / Renew', channel:'Telegram Channel', support:'Support', site:'Website',
+      showList:'Show', hideList:'Hide', news:'Announcements',
       freeBot:'Free config bot',
       nextPlan:'Next plan', recommended:'Recommended', secure:'Your connection is encrypted & secure',
       st_active:'Active', st_on_hold:'On hold', st_limited:'Limited',
@@ -593,6 +611,9 @@
   const num   = n => lang === 'fa' ? faNum(n) : String(n);
   const esc   = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pad2  = n => (n < 10 ? '0' : '') + n;
+  // Two sheets, which is what "copy" looks like everywhere else. The paperclip
+  // that was on "copy all" means attachment, not copy.
+  const COPY_ICON = `<svg class="qr-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
   const QR_ICON = `<svg class="qr-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>`;
 
   function fmtBytes(b){
@@ -656,13 +677,52 @@
     return { proto, name, raw: link };
   }
 
+  /* ---------------------------------------------------------------------------
+     Icons.
+
+     Drawn here rather than fetched: this page is one file and has to work with
+     no network of its own, so every mark is inline SVG. The operating systems
+     are their real logos (they are simple geometry). Each client app gets a tile
+     in its own brand colour with its own glyph — close enough to be recognised
+     at 20 pixels, and nobody's artwork copied into the file.
+     --------------------------------------------------------------------------- */
+  const SVG = (body, box) => `<svg viewBox="0 0 ${box || 24} ${box || 24}" aria-hidden="true">${body}</svg>`;
+
+  const OS_ICON = {
+    android: SVG('<path fill="#3ddc84" d="M6 10h12v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-7Zm-2 .5a1.2 1.2 0 0 1 2.4 0v4.6a1.2 1.2 0 0 1-2.4 0v-4.6Zm13.6 0a1.2 1.2 0 0 1 2.4 0v4.6a1.2 1.2 0 0 1-2.4 0v-4.6ZM9 19h2v2.3a1.15 1.15 0 0 1-2.3 0V19Zm4 0h2v2.3a1.15 1.15 0 0 1-2.3 0V19ZM8.2 4.6 7.4 3.2a.3.3 0 0 1 .5-.3l.85 1.45A6.5 6.5 0 0 1 12 3.8c1.2 0 2.3.2 3.25.55L16.1 2.9a.3.3 0 0 1 .5.3l-.8 1.4C17.6 5.5 18.8 7.1 19 9H5c.2-1.9 1.4-3.5 3.2-4.4ZM9.3 6.6a.62.62 0 1 0 0 1.25.62.62 0 0 0 0-1.25Zm5.4 0a.62.62 0 1 0 0 1.25.62.62 0 0 0 0-1.25Z"/>'),
+    ios: SVG('<path fill="currentColor" d="M16.2 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8-.6 0-1.6-.8-2.7-.8-1.4 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.5 2.1 2.6 2 1-.04 1.4-.65 2.7-.65 1.2 0 1.6.65 2.7.63 1.1-.02 1.8-1 2.5-2 .8-1.15 1.1-2.26 1.1-2.32-.02-.01-2.2-.85-2.3-3.36ZM14.1 6.2c.55-.68.93-1.62.83-2.56-.8.03-1.77.53-2.35 1.2-.5.6-.96 1.56-.84 2.48.9.07 1.8-.45 2.36-1.12Z"/>'),
+    windows: SVG('<path fill="#0ea5e9" d="M3 5.6 10.4 4.5v7.1H3V5.6Zm8.6-1.3L21 3v8.6h-9.4V4.3ZM3 12.9h7.4V20L3 18.9v-6ZM11.6 13H21v8.6l-9.4-1.3V13Z"/>'),
+    mac: SVG('<path fill="currentColor" d="M16.2 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.1.8-.6 0-1.6-.8-2.7-.8-1.4 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.5 2.1 2.6 2 1-.04 1.4-.65 2.7-.65 1.2 0 1.6.65 2.7.63 1.1-.02 1.8-1 2.5-2 .8-1.15 1.1-2.26 1.1-2.32-.02-.01-2.2-.85-2.3-3.36ZM14.1 6.2c.55-.68.93-1.62.83-2.56-.8.03-1.77.53-2.35 1.2-.5.6-.96 1.56-.84 2.48.9.07 1.8-.45 2.36-1.12Z"/>'),
+    linux: SVG('<path fill="#f5f5f5" d="M12 2.4c-2 0-3.2 1.6-3.2 3.6 0 1 .1 1.7-.3 2.5-.5 1-1.6 2-2.2 3.4-.3.7-.4 1.4-.2 2-.5.6-.5 1.3-.2 1.8.3.5.9.7 1.5.9.8.2 1.3.5 1.8.9.5.4 1.3.7 2.4.7 1.1 0 1.9-.3 2.4-.7.5-.4 1-.7 1.8-.9.6-.2 1.2-.4 1.5-.9.3-.5.3-1.2-.2-1.8.2-.6.1-1.3-.2-2-.6-1.4-1.7-2.4-2.2-3.4-.4-.8-.3-1.5-.3-2.5 0-2-1.2-3.6-3.2-3.6Zm-1.2 3a.6.75 0 1 1 0 1.5.6.75 0 0 1 0-1.5Zm2.4 0a.6.75 0 1 1 0 1.5.6.75 0 0 1 0-1.5Zm-1.2 2.2c.7 0 1.5.4 1.5.8 0 .3-.9.8-1.5.8s-1.5-.5-1.5-.8c0-.4.8-.8 1.5-.8Z"/><path fill="#fbbf24" d="M9.6 18.2c-.6.5-1.4.8-1.4 1.4 0 .5.6.8 1.3 1 .9.3 1.7.6 2.5.6s1.6-.3 2.5-.6c.7-.2 1.3-.5 1.3-1 0-.6-.8-.9-1.4-1.4-.6-.5-1.3-.8-2.4-.8s-1.8.3-2.4.8Z"/>'),
+  };
+
+  /** A client's tile: its own colour, its own glyph, drawn at any size. */
+  const APP_ICON = {
+    'Hiddify':      { bg:'#7c3aed', body:'<path fill="#fff" d="M12 4.5 18 7v5.4c0 3.4-2.4 5.6-6 7.1-3.6-1.5-6-3.7-6-7.1V7l6-2.5Z" opacity=".95"/><path fill="#7c3aed" d="M9.4 11.9h5.2v1.5H9.4z"/>' },
+    'sing-box':     { bg:'#0ea5e9', body:'<path fill="#fff" d="M12 4.6 19 8v8l-7 3.4L5 16V8l7-3.4Zm0 2.2L7 9.1v5.8l5 2.4 5-2.4V9.1L12 6.8Z"/><path fill="#fff" d="M11.2 10.4h1.6v5h-1.6z"/>' },
+    'v2rayNG':      { bg:'#16a34a', body:'<path fill="#fff" d="m7 7.5 5 9 5-9h-2.6L12 12.4 9.6 7.5H7Z"/>' },
+    'NekoBox':      { bg:'#f59e0b', body:'<path fill="#fff" d="M6.5 8.5 5 5l3.6 1.8A8.6 8.6 0 0 1 12 6.2c1.2 0 2.4.2 3.4.6L19 5l-1.5 3.5c1 1 1.5 2.2 1.5 3.5 0 3.3-3.1 5.8-7 5.8s-7-2.5-7-5.8c0-1.3.5-2.5 1.5-3.5Z"/><circle cx="9.6" cy="12" r="1.1" fill="#f59e0b"/><circle cx="14.4" cy="12" r="1.1" fill="#f59e0b"/>' },
+    'Clash Meta':   { bg:'#2563eb', body:'<path fill="#fff" d="M13.6 3.5 6.8 13h3.8l-1.2 7.5L17 10.5h-4l.6-7Z"/>' },
+    'v2box':        { bg:'#0891b2', body:'<path fill="#fff" d="M5.5 6.5h13v11h-13z" opacity=".25"/><path fill="#fff" d="M7.4 8.2 12 16l4.6-7.8h-2.4L12 12.1 9.8 8.2H7.4Z"/>' },
+    'Streisand':    { bg:'#3b82f6', body:'<path fill="#fff" d="M14.9 7.3c-.7-.6-1.8-1-2.9-1-2 0-3.4 1.1-3.4 2.7 0 1.4 1 2.2 2.8 2.8l1 .3c1.1.4 1.6.8 1.6 1.5 0 .8-.8 1.3-2 1.3-1.2 0-2.3-.5-3.1-1.2l-1 1.6c1 .9 2.5 1.4 4 1.4 2.2 0 3.9-1.2 3.9-3 0-1.5-.9-2.4-2.8-3l-1-.3c-1.1-.4-1.6-.7-1.6-1.3 0-.7.7-1.1 1.7-1.1.9 0 1.8.3 2.5.8l1.3-1.5Z"/>' },
+    'Shadowrocket': { bg:'#111827', body:'<path fill="#fff" d="M12 3.6c2.6 1.9 4 4.6 4 7.6 0 1.4-.3 2.7-.9 3.9h-6.2A8.7 8.7 0 0 1 8 11.2c0-3 1.4-5.7 4-7.6Zm0 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM8.6 16.4h6.8l-1 1.7h-1.6l-.8 2.3-.8-2.3H9.6l-1-1.7Z"/>' },
+  };
+
+  function appIcon(name){
+    const a = APP_ICON[name];
+
+    return a
+      ? `<span class="app-ico" style="background:${a.bg}">${SVG(a.body)}</span>`
+      : `<span class="app-ico" style="background:var(--line)">${SVG('<circle cx="12" cy="12" r="6" fill="#fff"/>')}</span>`;
+  }
+
   // Quick-import clients, tagged with the operating systems they support.
   const OS_LIST = [
-    { key:'android', e:'🤖', fa:'اندروید', en:'Android' },
-    { key:'ios',     e:'🍎', fa:'iOS',     en:'iOS' },
-    { key:'windows', e:'🪟', fa:'ویندوز',  en:'Windows' },
-    { key:'mac',     e:'🍏', fa:'macOS',   en:'macOS' },
-    { key:'linux',   e:'🐧', fa:'لینوکس',  en:'Linux' },
+    { key:'android', fa:'اندروید', en:'Android' },
+    { key:'ios',     fa:'iOS',     en:'iOS' },
+    { key:'windows', fa:'ویندوز',  en:'Windows' },
+    { key:'mac',     fa:'macOS',   en:'macOS' },
+    { key:'linux',   fa:'لینوکس',  en:'Linux' },
   ];
   function detectOS(){
     const ua = (navigator.userAgent || '').toLowerCase();
@@ -679,14 +739,14 @@
     let b64 = ''; try { b64 = btoa(unescape(encodeURIComponent(sub))); } catch {}
     const nm = encodeURIComponent(B.brandName || 'Subscription');
     return [
-      { name:'Hiddify',      e:'🟣', os:['android','ios','windows','mac','linux'], url:'hiddify://import/' + sub },
-      { name:'sing-box',     e:'📦', os:['android','ios','windows','mac','linux'], url:'sing-box://import-remote-profile?url=' + e },
-      { name:'v2rayNG',      e:'🟢', os:['android'],                              url:'v2rayng://install-sub?url=' + e },
-      { name:'NekoBox',      e:'🐱', os:['android'],                              url:'sn://subscription?url=' + e },
-      { name:'Clash Meta',   e:'⚡', os:['android','windows','mac','linux'],       url:'clash://install-config?url=' + e + '&name=' + nm },
-      { name:'v2box',        e:'🟦', os:['ios','android'],                        url:'v2box://install-sub?url=' + e },
-      { name:'Streisand',    e:'🔵', os:['ios','mac'],                            url:'streisand://import/' + sub },
-      { name:'Shadowrocket', e:'🚀', os:['ios'],                                  url:'shadowrocket://add/sub://' + b64 },
+      { name:'Hiddify',      os:['android','ios','windows','mac','linux'], url:'hiddify://import/' + sub },
+      { name:'sing-box',     os:['android','ios','windows','mac','linux'], url:'sing-box://import-remote-profile?url=' + e },
+      { name:'v2rayNG',      os:['android'],                              url:'v2rayng://install-sub?url=' + e },
+      { name:'NekoBox',      os:['android'],                              url:'sn://subscription?url=' + e },
+      { name:'Clash Meta',   os:['android','windows','mac','linux'],      url:'clash://install-config?url=' + e + '&name=' + nm },
+      { name:'v2box',        os:['ios','android'],                        url:'v2box://install-sub?url=' + e },
+      { name:'Streisand',    os:['ios','mac'],                            url:'streisand://import/' + sub },
+      { name:'Shadowrocket', os:['ios'],                                  url:'shadowrocket://add/sub://' + b64 },
     ];
   }
 
@@ -826,16 +886,17 @@
   function subCard(){
     const list = clients(subUrl);
     const osBtns = OS_LIST.map(o =>
-      `<button class="os-tab ${o.key === osTab ? 'active' : ''}" data-os="${o.key}"><span class="e">${o.e}</span>${lang === 'fa' ? o.fa : o.en}</button>`).join('');
+      `<button class="os-tab ${o.key === osTab ? 'active' : ''}" data-os="${o.key}"><span class="os-ico">${OS_ICON[o.key] || ''}</span>${lang === 'fa' ? o.fa : o.en}</button>`).join('');
     const chips = list.filter(a => a.os.includes(osTab)).map(a =>
-      `<a class="chip" href="${esc(a.url)}"><span class="e">${a.e}</span>${esc(a.name)}</a>`).join('');
+      `<a class="chip" href="${esc(a.url)}">${appIcon(a.name)}${esc(a.name)}</a>`).join('');
     return `<div class="card">
       <div class="card-h"><span class="dot"></span>${t('subLink')}</div>
       <div class="sub-box">${esc(subUrl)}</div>
       <div class="btn-row">
-        <button class="btn primary" data-action="copy-sub">📋 ${t('copyLink')}</button>
+        <button class="btn primary" data-action="copy-sub">${COPY_ICON} ${t('copyLink')}</button>
         <button class="btn" data-action="qr-sub">${QR_ICON} ${t('showQr')}</button>
       </div>
+      ${LINKS.length ? `<button class="btn" style="margin-top:10px" data-action="copy-all">${COPY_ICON} ${t('copyAll')} <span class="muted small">(${num(LINKS.length)})</span></button>` : ''}
       <div class="card-h" style="margin:18px 0 0;font-size:.9rem"><span class="dot"></span>${t('quickAdd')}</div>
       <div class="os-tabs">${osBtns}</div>
       <div class="chips">${chips}</div>
@@ -853,7 +914,7 @@
           <div class="s">${esc(c.raw.slice(0, 48))}…</div>
         </div>
         <div class="act">
-          <button class="icon-btn" data-copy-idx="${i}" title="${t('copyConfig')}">📋</button>
+          <button class="icon-btn" data-copy-idx="${i}" title="${t('copyConfig')}">${COPY_ICON}</button>
           <button class="icon-btn" data-qr-idx="${i}" title="${t('qr')}">${QR_ICON}</button>
         </div>
       </div>`;
@@ -864,11 +925,11 @@
     return `<div class="card">
       <button class="card-h fold" data-action="toggle-configs" aria-expanded="${configsOpen ? 'true' : 'false'}">
         <span class="dot"></span>${t('configs')} <span class="muted small">(${num(LINKS.length)})</span>
-        <span class="chev">${configsOpen ? '▾' : '▸'}</span>
+        <span class="fold-cta">${configsOpen ? t('hideList') : t('showList')}<span class="chev">${configsOpen ? '▴' : '▾'}</span></span>
       </button>
       <div class="fold-body"${configsOpen ? '' : ' hidden'}>
         ${items}
-        <button class="btn" style="margin-top:12px" data-action="copy-all">🧷 ${t('copyAll')}</button>
+        <button class="btn" style="margin-top:12px" data-action="copy-all">${COPY_ICON} ${t('copyAll')}</button>
       </div>
     </div>`;
   }
@@ -901,14 +962,17 @@
     const ch  = B.telegramChannel ? `<a class="btn tg" href="${esc(tg(B.telegramChannel))}">📢 ${t('channel')}</a>` : '';
     // A second bot, for free configs — a shop that has one wants it on the page.
     const free= B.freeBot ? `<a class="btn tg" href="${esc(tg(B.freeBot))}">🎁 ${t('freeBot')}</a>` : '';
+    // A shop often keeps two channels: the one people join, and the one that only
+    // carries notices. Both get a button when both are set.
+    const news= B.newsChannel ? `<a class="btn tg" href="${esc(tg(B.newsChannel))}">🔔 ${t('news')}</a>` : '';
     const supHref = B.supportUrl ? B.supportUrl : (B.supportId ? tg(B.supportId) : '');
     const sp  = supHref ? `<a class="btn sp" href="${esc(supHref)}">💬 ${t('support')}</a>` : '';
     const site= B.website ? `<a class="btn sp" href="${esc(B.website)}" target="_blank" rel="noopener">🌐 ${t('site')}</a>` : '';
     const extras = [sp, site].filter(Boolean);
     // Only use the 2-column grid when BOTH exist; a single extra spans full width like the buttons above.
     const extrasHtml = extras.length === 2 ? `<div class="cta-grid">${sp}${site}</div>` : extras.join('');
-    if (!buy && !ch && !free && !extrasHtml) return '';        // nothing to show -> no empty card
-    return `<div class="card cta">${buy}${ch}${free}${extrasHtml}</div>`;
+    if (!buy && !ch && !news && !free && !extrasHtml) return '';   // nothing to show -> no empty card
+    return `<div class="card cta">${buy}${ch}${news}${free}${extrasHtml}</div>`;
   }
 
   function nextPlanSection(){
@@ -928,7 +992,7 @@
 
   function footer(u){
     const rows = [];
-    if (u.created_at)  rows.push([t('created'), fmtDate(u.created_at, false)]);
+    if (u.created_at)  rows.push([t('created'), fmtDate(u.created_at, true)]);
     if (u.data_limit_reset_strategy && u.data_limit_reset_strategy !== 'no_reset')
       rows.push([t('reset'), esc(u.data_limit_reset_strategy)]);
     const rowsHtml = rows.length
