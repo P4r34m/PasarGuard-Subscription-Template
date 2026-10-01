@@ -28,14 +28,14 @@ Open `index.html`, find the `CONFIG` block near the top of the script and edit t
 
 ```js
 const CONFIG = {
-  brandName: "Parsashonam",        // your brand / panel name
+  brandName: "Brand",        // your brand / panel name
   brandLogo: "🛡️",                 // emoji or letter (used only when brandLogoUrl is empty)
   brandLogoUrl: "",                // optional image logo: a URL or a data: URI (overrides brandLogo)
   accent:    "#2aabee",            // primary theme color (hex)
 
-  salesBot:        "ParsashonamRobot", // Telegram sales / renewal bot   (without @)
-  telegramChannel: "Parsashonam",      // Telegram channel               (without @)
-  supportId:       "P4r34M",           // Telegram support account       (without @)
+  salesBot:        "ExampleBot", // Telegram sales / renewal bot   (without @)
+  telegramChannel: "ExampleChannel",      // Telegram channel               (without @)
+  supportId:       "TelegrmaID",           // Telegram support account       (without @)
   website:         "",                 // website (optional)
 };
 ```
