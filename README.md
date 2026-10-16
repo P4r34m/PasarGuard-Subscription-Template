@@ -162,7 +162,7 @@ Run `./install.sh --help` for options (`--file`, `--url`, `--dest`, `--env`).
 - Jalali (Persian) expiry date and Persian digits; English dates in EN mode.
 - User status badge (active / on hold / limited / expired / disabled) and a live "online" indicator.
 - Subscription link with copy + QR.
-- One-tap import into Hiddify, v2rayNG, Streisand, NekoBox, Clash Meta, Shadowrocket.
+- One-tap import into Happ, v2rayNG, Clash Meta, v2box, Streisand, Shadowrocket.
 - Per-config copy + QR, and "copy all".
 - Recommended apps (when configured in PasarGuard).
 - Branding buttons: **Buy / Renew** (your bot), **Telegram channel**, **Support**.
